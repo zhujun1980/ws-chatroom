@@ -1,4 +1,11 @@
-A anonymous websocket chatroom
+A anonymous websocket chatroom.
+It is very simple, I wrote this to learn the websocket protocol
 
 RFC
 http://tools.ietf.org/html/rfc6455
+
+Compile
+cc -Wall -lssl  main.c 
+
+RUN
+./a.out
