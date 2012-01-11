@@ -1,0 +1,98 @@
+<html>
+<head>
+<title>WebSocket Chat</title>
+<meta http-equiv="x-ua-compatible" content="ie=7" />
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style>
+.output {
+	font-size:15px;
+	width:50%;
+	height:70%;
+	overflow-y:scroll; 
+}
+</style>
+<script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js"></script>
+<script type="text/javascript">
+$(document).ready(function () {
+	var ws;
+
+	function do_conn() {
+		ws = new WebSocket("ws://192.168.1.104:8008/socket/chat");
+
+		ws.onmessage = function(event) {
+			$('#output').append(event.data);
+			$('#output').append("<br/>");
+			var div = document.getElementById('output'); 
+			div.scrollTop = div.scrollHeight;
+		};
+
+		ws.onopen = function(event) {
+			$('#input1').focus();
+			$("#conn").attr("disabled", true);
+			$("#disconn").attr("disabled", false);
+		};
+
+		ws.onclose = function(event) {
+			//alert(event);
+			$("#conn").attr("disabled", false);
+			$("#disconn").attr("disabled", true);
+			$('#output').append("连接已断开！！！<br/>");
+		};
+
+		ws.onerror = function(event) {
+			//alert(event);
+		};
+	}
+
+	if (window.WebSocket)
+		do_conn(100);
+	else
+		alert("This browser does not have support for WebSocket, USE Chrome PLS");
+
+	function do_send() {
+		if($('#input1').val() != "") {
+			ws.send($('#input1').val());
+			$('#input1').val('');
+			$('#input1').focus();
+		}
+	}
+
+	$('#input1').keypress(function(ev) {
+		if(event.which == 13)
+			do_send();
+	});
+
+	$('button').click(function(mouse) {
+		action = $(this).text();
+		if(action == '发送') {
+			do_send();
+		}
+		else if(action == '所有用户') {
+			$('#output').append("========用户列表========<br/>");
+			ws.send("/LIST");
+		}
+		else if(action == '修改名称') {
+			nick = prompt("请修改您的昵称:", "");
+			if(nick != null && nick != "") {
+				ws.send("/NICK " + nick);
+			}
+		}
+		else if(action == '连接') {
+			do_conn();
+		}
+		else if(action == '断开连接') {
+			ws.close();
+		}
+		$('#input1').focus();
+	});
+});
+</script>
+</head>
+<body>
+<div id=output class='output'></div>
+<br/>
+<input type="text" id="input1" value=""><button>发送</button><button>所有用户</button> <button>修改名称</button>
+<a href="main.c">source</a><br/>
+<button id="conn">连接</button><button id="disconn">断开连接</button>
+</body>
+</html>
