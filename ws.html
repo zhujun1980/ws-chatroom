@@ -17,13 +17,23 @@ $(document).ready(function () {
 	var ws;
 
 	function do_conn() {
-		ws = new WebSocket("ws://192.168.1.104:8008/socket/chat");
+		if (window.WebSocket)
+			ws = new WebSocket("ws://192.168.1.104:8008/socket/chat");
+		else if(window.MozWebSocket)
+			ws = new MozWebSocket("ws://192.168.1.104:8008/socket/chat");
 
 		ws.onmessage = function(event) {
 			$('#output').append(event.data);
 			$('#output').append("<br/>");
 			var div = document.getElementById('output'); 
 			div.scrollTop = div.scrollHeight;
+
+			var popup = window.webkitNotifications.createNotification("", "New Message", event.data);
+			popup.show();
+
+			setTimeout(function(){
+				popup.cancel();
+			}, '1000');
 		};
 
 		ws.onopen = function(event) {
@@ -44,7 +54,15 @@ $(document).ready(function () {
 		};
 	}
 
-	if (window.WebSocket)
+	if (window.webkitNotifications) {
+		if (window.webkitNotifications.checkPermission() != 0) {
+			window.webkitNotifications.requestPermission();
+		}
+	}
+	else
+		alert("Notifications are not supported for this Browser/OS version yet.");
+
+	if (window.WebSocket || window.MozWebSocket)
 		do_conn();
 	else
 		alert("This browser does not have support for WebSocket, USE Chrome PLS");
