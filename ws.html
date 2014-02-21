@@ -6,9 +6,14 @@
 <style>
 .output {
 	font-size:15px;
-	width:50%;
-	height:70%;
+	width:100%;
+	height:40%;
 	overflow-y:scroll; 
+}
+
+.doutput {
+	width:100%;
+	height:50%;
 }
 </style>
 <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js"></script>
@@ -18,11 +23,19 @@ $(document).ready(function () {
 
 	function do_conn() {
 		if (window.WebSocket)
-			ws = new WebSocket("ws://192.168.1.104:8008/socket/chat");
+			ws = new WebSocket("ws://206.221.220.166:8008/socket/chat");
 		else if(window.MozWebSocket)
-			ws = new MozWebSocket("ws://192.168.1.104:8008/socket/chat");
+			ws = new MozWebSocket("ws://206.221.220.166:8008/socket/chat");
 
 		ws.onmessage = function(event) {
+			if(event.data.indexOf('\/SVG:') != -1) {
+				var ddi = event.data.indexOf('\/SVG:');
+				var dd = event.data.substr(ddi+5);
+				var lineData = JSON.parse(dd);
+				SVG.line(lineData[0], lineData[1], lineData[2], lineData[3]);
+				return;
+			}
+
 			$('#output').append(event.data);
 			$('#output').append("<br/>");
 			var div = document.getElementById('output'); 
@@ -103,14 +116,78 @@ $(document).ready(function () {
 		}
 		$('#input1').focus();
 	});
+
+	//==========================================
+	var SVG = (function(mod){
+		var svg = null;
+		var xmlns="http://www.w3.org/2000/svg";
+
+		mod.init = function(svg1) {
+			svg = svg1;
+		}
+
+		mod.line = function(x1, y1, x2, y2) {
+			var l=document.createElementNS(xmlns,"line")
+			l.setAttributeNS(null,"x1", x1)
+			l.setAttributeNS(null,"y1", y1)
+			l.setAttributeNS(null,"x2", x2)
+			l.setAttributeNS(null,"y2", y2)
+			l.setAttributeNS(null,"stroke-width", 4)
+			l.setAttributeNS(null,"stroke", 'blue')
+			svg.appendChild(l)
+		}
+
+		return mod;
+	})(window.mod || {});
+
+	var x1;
+	var y1;
+	var x2;
+	var y2;
+
+	var drawMode = false;
+
+	SVG.init(document.getElementById("svg1"));
+
+	document.onmousedown = function(ev) {
+		ev = ev || window.event; 
+		drawMode = true;
+		x1 = ev.pageX;
+		y1 = ev.pageY;
+	};
+
+	document.onmousemove = function(ev) {
+		ev = ev || window.event; 
+		if(drawMode == true) {
+			x2 = ev.pageX;
+			y2 = ev.pageY;
+			SVG.line(x1, y1, x2, y2);
+			ws.send("/SVG:" + JSON.stringify( [x1, y1, x2, y2] ));
+			
+			x1 = x2;
+			y1 = y2;
+		}
+	}
+
+	document.onmouseup = function(ev) {
+		ev = ev || window.event; 
+		drawMode = false;
+	};
 });
 </script>
+
 </head>
 <body>
+<div class="doutput">
+<svg xmlns="http://www.w3.org/2000/svg" id='svg1'>
+</svg>
+</div>
 <div id=output class='output'></div>
+
 <br/>
 <input type="text" id="input1" value=""><button>发送</button><button>所有用户</button> <button>修改名称</button>
-<a href="main.c">source</a><br/>
+<br/>
 <button id="conn">连接</button><button id="disconn">断开连接</button>
+
 </body>
 </html>
