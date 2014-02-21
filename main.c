@@ -9,6 +9,7 @@
 #include <errno.h>
 #include <stdarg.h>
 #include <time.h>
+#include <signal.h>
 
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -63,6 +64,8 @@
 #define WS_FRAME_OPCODE_PONG		10
 
 #define WS_FRAME_MASK			0
+
+typedef void (*Sigfunc)(int);
 
 const char *state_1xx_strs[] = {
 	"Continue",		//100
@@ -1389,6 +1392,68 @@ void do_echo(struct epoll_event* ev) {
 	} while(nread == buf_len);
 }
 
+Sigfunc Signal(int signo, Sigfunc func)
+{
+	struct sigaction act, oact;
+
+	act.sa_handler = func;
+	sigemptyset(&act.sa_mask);
+	act.sa_flags = 0;
+
+	if (signo == SIGALRM)
+	{
+#ifdef	SA_INTERRUPT
+		act.sa_flags |= SA_INTERRUPT;	/* SunOS 4.x */
+#endif
+	}
+	else
+	{
+#ifdef	SA_RESTART
+		act.sa_flags |= SA_RESTART;		/* SVR4, 44BSD */
+#endif
+	}
+
+	if(sigaction(signo, &act, &oact) < 0)
+		return (SIG_ERR);
+	return oact.sa_handler;
+}
+
+static int daemonize(const char* appname) {
+	int i;
+	pid_t pid;
+
+	if((pid = fork())<0)
+		return -1;
+	else if(pid>0)
+		_exit(0);
+
+	if(setsid()<0)
+		return -1;
+
+	Signal(SIGCHLD, SIG_IGN);
+
+	if((pid=fork())<0)
+		return -1;
+	else if(pid>0)
+		_exit(0);
+
+	chdir("/");
+
+	for(i = 0; i < 64; i++)
+		close(i);
+
+	open("/dev/null", O_RDONLY);
+	open("/dev/null", O_RDWR);
+	open("/dev/null", O_RDWR);
+
+	//openlog(appname, LOG_PID, LOG_USER);
+
+	return 0;
+}
+
+void ws_signal_handler(int signo) {
+}
+
 int main(int argc, char* argv[]) {
 	int error;
 	char c;
@@ -1420,6 +1485,15 @@ int main(int argc, char* argv[]) {
 		return -1;
 	}
 	*/
+
+	if(0 != daemonize("wschat"))
+		return -1;
+
+    Signal(SIGQUIT, ws_signal_handler);
+    Signal(SIGTERM, ws_signal_handler);
+    Signal(SIGINT, ws_signal_handler);
+    Signal(SIGCHLD, ws_signal_handler);
+    Signal(SIGHUP, ws_signal_handler);
 
 	if((error = tcp_server_socket()) < 0) {
 		return error;
